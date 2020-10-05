@@ -126,9 +126,13 @@ contract PaySpec  {
   }
 
 
+  function createAndPayInvoice(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt, bytes32 expecteduuid  ) public returns (bool) {
+     bytes32 newuuid = _createInvoice(description,nonce,token,amountDue,payTo,ethBlockExpiresAt,expecteduuid);
+     require(newuuid == expecteduuid);
+     return _payInvoice(newuuid);
+  }
 
-
-   function createInvoice(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt ) public returns (uint uuid) {
+   function _createInvoice(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt, bytes32 expecteduuid ) private returns (bytes32 uuid) {
 
 
 
@@ -137,6 +141,7 @@ contract PaySpec  {
 
       bytes32 newuuid = keccak256( abi.encodePacked( description, nonce, token, amountDue, payTo, ethBlockCreatedAt ) );
 
+      require( newuuid == expecteduuid );
       require( invoices[newuuid].uuid == 0 );  //make sure you do not overwrite invoices
 
       invoices[newuuid] = Invoice({
@@ -157,10 +162,12 @@ contract PaySpec  {
 
        emit CreatedInvoice(newuuid);
 
-       return uuid;
+       return newuuid;
    }
 
-   function payInvoice( bytes32 invoiceUUID, address from) public returns (bool) {
+   function _payInvoice( bytes32 invoiceUUID ) private returns (bool) {
+
+       address from = msg.sender;
 
        require( invoices[invoiceUUID].uuid == invoiceUUID ); //make sure invoice exists
        require( invoiceWasPaid(invoiceUUID) == false );
@@ -206,7 +213,7 @@ contract PaySpec  {
      Receive approval from ApproveAndCall() to pay invoice.  The first 32 bytes of the data array are used for the invoice UUID bytes32.
 
    */
-     function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public returns (bool) {
+    /* function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public returns (bool) {
 
         require(  payInvoice(bytesToBytes32(data,0), from)  );
 
@@ -221,7 +228,7 @@ contract PaySpec  {
         out |= bytes32(b[offset + i] & 0xFF) >> (i * 8);
       }
       return out;
-    }
+    }*/
 
 
 }
