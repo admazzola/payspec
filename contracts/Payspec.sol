@@ -134,12 +134,10 @@ contract PaySpec  {
 
    function _createInvoice(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt, bytes32 expecteduuid ) private returns (bytes32 uuid) {
 
+     uint256 ethBlockCreatedAt = block.number;
 
 
-
-      uint256 ethBlockCreatedAt = block.number;
-
-      bytes32 newuuid = keccak256( abi.encodePacked( description, nonce, token, amountDue, payTo, ethBlockCreatedAt ) );
+      bytes32 newuuid = getInvoiceUUID(description, nonce, token, amountDue, payTo, ethBlockExpiresAt  ) ;
 
       require( newuuid == expecteduuid );
       require( invoices[newuuid].uuid == 0 );  //make sure you do not overwrite invoices
@@ -191,44 +189,33 @@ contract PaySpec  {
 
    }
 
+   function getInvoiceUUID(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt  ) public view returns (bytes32 uuid) {
 
-   function invoiceWasPaid( bytes32 invoiceUUID ) public view returns (bool)
-   {
+
+         uint256 ethBlockCreatedAt = block.number;
+
+         bytes32 newuuid = keccak256( abi.encodePacked( description, nonce, token, amountDue, payTo, ethBlockCreatedAt ) );
+
+         return newuuid;
+    }
+
+   function invoiceWasPaid( bytes32 invoiceUUID ) public view returns (bool){
+
        return invoices[invoiceUUID].amountPaid >= invoices[invoiceUUID].amountDue;
    }
 
 
 
-   function invoiceExpiresAt( bytes32 invoiceUUID ) public view returns (uint)
-   {
+   function invoiceExpiresAt( bytes32 invoiceUUID ) public view returns (uint){
+
        return invoices[invoiceUUID].ethBlockExpiresAt;
    }
 
-   function invoiceHasExpired( bytes32 invoiceUUID ) public view returns (bool)
-   {
+   function invoiceHasExpired( bytes32 invoiceUUID ) public view returns (bool){
+
        return (invoiceExpiresAt(invoiceUUID) != 0 && block.number >= invoiceExpiresAt(invoiceUUID));
    }
 
-   /*
-     Receive approval from ApproveAndCall() to pay invoice.  The first 32 bytes of the data array are used for the invoice UUID bytes32.
-
-   */
-    /* function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public returns (bool) {
-
-        require(  payInvoice(bytesToBytes32(data,0), from)  );
-
-        return true;
-
-     }
-
-    function bytesToBytes32(bytes memory b, uint offset) private pure returns (bytes32) {
-      bytes32 out;
-
-      for (uint i = 0; i < 32; i++) {
-        out |= bytes32(b[offset + i] & 0xFF) >> (i * 8);
-      }
-      return out;
-    }*/
 
 
 }
