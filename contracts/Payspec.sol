@@ -146,7 +146,6 @@ contract PaySpec is Owned {
     address token;
     uint256 amountDue;
     address payTo;
-    uint256 ethBlockCreatedAt;
 
 
     address paidBy;
@@ -185,10 +184,9 @@ contract PaySpec is Owned {
 
    function _createInvoice(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt, bytes32 expecteduuid ) private returns (bytes32 uuid) {
 
-     uint256 ethBlockCreatedAt = block.number;
 
 
-      bytes32 newuuid = getInvoiceUUID(description, nonce, token, amountDue, payTo   ) ;
+      bytes32 newuuid = getInvoiceUUID(description, nonce, token, amountDue, payTo, ethBlockExpiresAt ) ;
 
       require(!lockedByOwner);
       require( newuuid == expecteduuid );
@@ -201,7 +199,6 @@ contract PaySpec is Owned {
        token: token,
        amountDue: amountDue,
        payTo: payTo,
-       ethBlockCreatedAt: ethBlockCreatedAt,
        paidBy: address(0),
        amountPaid: 0,
        ethBlockPaidAt: 0,
@@ -252,12 +249,10 @@ contract PaySpec is Owned {
 
    }
 
-   function getInvoiceUUID(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo   ) public view returns (bytes32 uuid) {
+   function getInvoiceUUID(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint expiresAt  ) public view returns (bytes32 uuid) {
 
 
-         uint256 ethBlockCreatedAt = block.number;
-
-         bytes32 newuuid = keccak256( abi.encodePacked( description, nonce, token, amountDue, payTo, ethBlockCreatedAt ) );
+         bytes32 newuuid = keccak256( abi.encodePacked( description, nonce, token, amountDue, payTo, expiresAt ) );
 
          return newuuid;
     }
