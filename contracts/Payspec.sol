@@ -69,8 +69,52 @@ contract ERC20Interface {
 }
 
 
-contract ApproveAndCallFallBack {
-    function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public;
+
+
+contract Owned {
+
+    address public owner;
+
+    address public newOwner;
+
+
+    event OwnershipTransferred(address indexed _from, address indexed _to);
+
+
+    constructor() public {
+
+        owner = msg.sender;
+
+    }
+
+
+    modifier onlyOwner {
+
+        require(msg.sender == owner);
+
+        _;
+
+    }
+
+
+    function transferOwnership(address _newOwner) public onlyOwner {
+
+        newOwner = _newOwner;
+
+    }
+
+    function acceptOwnership() public {
+
+        require(msg.sender == newOwner);
+
+        emit OwnershipTransferred(owner, newOwner);
+
+        owner = newOwner;
+
+        newOwner = address(0);
+
+    }
+
 }
 
 
@@ -78,14 +122,16 @@ contract ApproveAndCallFallBack {
 
 
 
-contract PaySpec  {
+
+contract PaySpec is Owned {
 
    using SafeMath for uint;
 
 
    mapping(bytes32 => Invoice) invoices;
 
-
+   bool lockedByOwner = false;
+   uint fee_pct;
 
   event CreatedInvoice(bytes32 uuid);
   event PaidInvoice(bytes32 uuid, address from);
@@ -114,15 +160,20 @@ contract PaySpec  {
 
 
 
-  constructor(  ) public {
+  constructor( uint fee_percent ) public {
+    fee_pct = fee_percent;
 
-
+    require(fee_pct >= 0 && fee_pct <= 100);
   }
 
 
   //do not allow ether to enter
   function() external    payable {
       revert();
+  }
+
+  function lockContract() public onlyOwner {
+    lockedByOwner = true;
   }
 
 
@@ -137,8 +188,9 @@ contract PaySpec  {
      uint256 ethBlockCreatedAt = block.number;
 
 
-      bytes32 newuuid = getInvoiceUUID(description, nonce, token, amountDue, payTo, ethBlockExpiresAt  ) ;
+      bytes32 newuuid = getInvoiceUUID(description, nonce, token, amountDue, payTo   ) ;
 
+      require(!lockedByOwner);
       require( newuuid == expecteduuid );
       require( invoices[newuuid].uuid == 0 );  //make sure you do not overwrite invoices
 
@@ -167,12 +219,23 @@ contract PaySpec  {
 
        address from = msg.sender;
 
+       require(!lockedByOwner);
        require( invoices[invoiceUUID].uuid == invoiceUUID ); //make sure invoice exists
        require( invoiceWasPaid(invoiceUUID) == false );
        require( invoiceHasExpired(invoiceUUID) == false);
 
-       //transfer the tokens
-       require( ERC20Interface( invoices[invoiceUUID].token  ).transferFrom( from ,  invoices[invoiceUUID].payTo, invoices[invoiceUUID].amountDue   ) );
+       uint amountDueInFees = invoices[invoiceUUID].amountDue.mul( fee_pct ).div(100);
+
+       uint amountDueLessFees =  invoices[invoiceUUID].amountDue.sub( amountDueInFees );
+
+       require( amountDueInFees.add(amountDueLessFees) ==  invoices[invoiceUUID].amountDue );
+
+       //transfer the tokens to the seller
+       require( ERC20Interface( invoices[invoiceUUID].token  ).transferFrom( from ,  invoices[invoiceUUID].payTo, amountDueLessFees  ) );
+
+       //transfer the fee to contract owner
+       require( ERC20Interface( invoices[invoiceUUID].token  ).transferFrom( from ,  owner, amountDueInFees) );
+
 
        invoices[invoiceUUID].amountPaid = invoices[invoiceUUID].amountDue;
 
@@ -189,7 +252,7 @@ contract PaySpec  {
 
    }
 
-   function getInvoiceUUID(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo, uint256 ethBlockExpiresAt  ) public view returns (bytes32 uuid) {
+   function getInvoiceUUID(  string memory description, uint256 nonce, address token, uint256 amountDue, address payTo   ) public view returns (bytes32 uuid) {
 
 
          uint256 ethBlockCreatedAt = block.number;
